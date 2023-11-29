@@ -11,6 +11,9 @@ class Space():
         self.num_hospitals = num_hospitals
         self.houses = set()
         self.hospitals = set()
+        """New list to store hospital positions during optimization"""
+        self.hospitals_history = []  
+
 
     def add_house(self, row, col):
         """Add a house at a particular location in state space."""
@@ -19,14 +22,14 @@ class Space():
     def available_spaces(self):
         """Returns all cells not currently used by a house or hospital."""
 
-        # Consider all possible cells
+        """Consider all possible cells"""
         candidates = set(
             (row, col)
             for row in range(self.height)
             for col in range(self.width)
         )
 
-        # Remove all houses and hospitals
+        """Remove all houses and hospitals"""
         for house in self.houses:
             candidates.remove(house)
         for hospital in self.hospitals:
@@ -37,33 +40,37 @@ class Space():
         """Performs hill-climbing to find a solution."""
         count = 0
 
-        # Start by initializing hospitals randomly
+        """Start by initializing hospitals randomly"""
         self.hospitals = set()
         for i in range(self.num_hospitals):
             self.hospitals.add(random.choice(list(self.available_spaces())))
+        
+        """Add the initial hospital positions to the history"""
+        self.hospitals_history.append(list(self.hospitals))
+            
         if log:
             print("Initial state: cost", self.get_cost(self.hospitals))
         if image_prefix:
             self.output_image(f"{image_prefix}{str(count).zfill(3)}.png")
 
-        # Continue until we reach maximum number of iterations
+        """Continue until we reach maximum number of iterations"""
         while maximum is None or count < maximum:
             count += 1
             best_neighbors = []
             best_neighbor_cost = None
 
-            # Consider all hospitals to move
+            """Consider all hospitals to move"""
             for hospital in self.hospitals:
 
-                # Consider all neighbors for that hospital
+                """Consider all neighbors for that hospital"""
                 for replacement in self.get_neighbors(*hospital):
 
-                    # Generate a neighboring set of hospitals
+                    """Generate a neighboring set of hospitals"""
                     neighbor = self.hospitals.copy()
                     neighbor.remove(hospital)
                     neighbor.add(replacement)
 
-                    # Check if neighbor is best so far
+                    """Check if neighbor is best so far"""
                     cost = self.get_cost(neighbor)
                     if best_neighbor_cost is None or cost < best_neighbor_cost:
                         best_neighbor_cost = cost
@@ -71,7 +78,7 @@ class Space():
                     elif best_neighbor_cost == cost:
                         best_neighbors.append(neighbor)
 
-            # None of the neighbors are better than the current state
+            """None of the neighbors are better than the current state"""
             if best_neighbor_cost >= self.get_cost(self.hospitals):
                 return self.hospitals
 
@@ -81,7 +88,10 @@ class Space():
                     print(f"Found better neighbor: cost {best_neighbor_cost}")
                 self.hospitals = random.choice(best_neighbors)
 
-            # Generate image
+                """Add the current hospital positions to the history"""
+                self.hospitals_history.append(list(self.hospitals))
+
+            """Generate image"""
             if image_prefix:
                 self.output_image(f"{image_prefix}{str(count).zfill(3)}.png")
 
@@ -90,7 +100,7 @@ class Space():
         best_hospitals = None
         best_cost = None
 
-        # Repeat hill-climbing a fixed number of times
+        """Repeat hill-climbing a fixed number of times"""
         for i in range(maximum):
             hospitals = self.hill_climb()
             cost = self.get_cost(hospitals)
@@ -142,7 +152,7 @@ class Space():
         cost_size = 40
         padding = 10
 
-        # Create a blank canvas
+        """Create a blank canvas"""
         img = Image.new(
             "RGBA",
             (self.width * cell_size,
@@ -161,7 +171,7 @@ class Space():
         for i in range(self.height):
             for j in range(self.width):
 
-                # Draw cell
+                """Draw cell"""
                 rect = [
                     (j * cell_size + cell_border,
                      i * cell_size + cell_border),
@@ -175,7 +185,7 @@ class Space():
                 if (i, j) in self.hospitals:
                     img.paste(hospital, rect[0], hospital)
 
-        # Add cost
+        """Add cost"""
         draw.rectangle(
             (0, self.height * cell_size, self.width * cell_size,
              self.height * cell_size + cost_size + padding * 2),
@@ -201,10 +211,17 @@ class Space():
                     for house in self.houses
                 )
 
+
         return heat_grid
 
-    def output_heat_grid_image(self, heat_grid, filename):
+    def output_heat_grid_image(self, heat_grid, hospitals, filename):
         matplotlib.pyplot.imshow(heat_grid, cmap='hot', interpolation='nearest')
+        
+        """Add small hospital images at current hospital positions"""
+        for hospital_pos in hospitals:
+             matplotlib.pyplot.plot(hospital_pos[1], hospital_pos[0], marker='o', markersize=8, color='green')
+
+        
         matplotlib.pyplot.title('Heat Grid Map')
         matplotlib.pyplot.colorbar(label='Heat Value')
         matplotlib.pyplot.savefig(filename)
@@ -222,8 +239,9 @@ hospitals = s.hill_climb(image_prefix="hospitals", log=True)
 """ Visualize the grid map with houses and hospitals"""
 s.output_image("last_map.png")
 
-""" Visualize the heat grid map"""
-""" Take the single hospital from the set"""
-heat_grid = s.visualize_heat_grid(hospitals.pop())  
 
-s.output_heat_grid_image(heat_grid, "heat_grid_map.png")
+# Visualize the optimization process on the heat grid map
+for i, hospitals_config in enumerate(s.hospitals_history):
+    heat_grid = s.visualize_heat_grid(hospitals_config)
+    s.output_heat_grid_image(heat_grid, hospitals_config, f"heat_grid_map_optimization_step_{i}.png")
+
