@@ -1,5 +1,6 @@
 import random
-
+import numpy
+import matplotlib.pyplot
 
 class Space():
 
@@ -189,11 +190,40 @@ class Space():
 
         img.save(filename)
 
+    def visualize_heat_grid(self, hospital):
+        heat_grid = numpy.zeros((self.height, self.width))
 
-# Create a new space and add houses randomly
-s = Space(height=10, width=20, num_hospitals=3)
+        for i in range(self.height):
+            for j in range(self.width):
+                """Calculating heat_grid values for every place summing the distance to the houses"""
+                heat_grid[i, j] = sum(
+                    abs(i - house[0]) + abs(j - house[1])
+                    for house in self.houses
+                )
+
+        return heat_grid
+
+    def output_heat_grid_image(self, heat_grid, filename):
+        matplotlib.pyplot.imshow(heat_grid, cmap='hot', interpolation='nearest')
+        matplotlib.pyplot.title('Heat Grid Map')
+        matplotlib.pyplot.colorbar(label='Heat Value')
+        matplotlib.pyplot.savefig(filename)
+        matplotlib.pyplot.close()
+
+
+""" Create a new space and add houses randomly"""
+s = Space(height=10, width=20, num_hospitals=1)
 for i in range(15):
     s.add_house(random.randrange(s.height), random.randrange(s.width))
 
-# Use local search to determine hospital placement
+""" Use local search to determine hospital placement"""
 hospitals = s.hill_climb(image_prefix="hospitals", log=True)
+
+""" Visualize the grid map with houses and hospitals"""
+s.output_image("last_map.png")
+
+""" Visualize the heat grid map"""
+""" Take the single hospital from the set"""
+heat_grid = s.visualize_heat_grid(hospitals.pop())  
+
+s.output_heat_grid_image(heat_grid, "heat_grid_map.png")
